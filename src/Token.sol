@@ -18,4 +18,9 @@ contract Token is ERC20 {
         require(owner == msg.sender, "Only owner");
         _mint(to, amount);
     }
+
+    function burn(address to, uint256 amount) public {
+        require(owner == msg.sender, "Only owner");
+        _burn(to, amount);
+    }
 }

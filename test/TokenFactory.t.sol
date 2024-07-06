@@ -43,4 +43,31 @@ contract TokenFactoryTest is Test {
         assert(token.balanceOf(alice) == 760_000_000 ether); // 19 ETH
         vm.stopPrank();
     }
+
+    function test_CalculateSellReturn() public {
+        // 1 ether, 0.8B / 20 = 40M
+        uint256 ethAmountReceived = factory.calculateSellReturn(
+            40_000_000 ether
+        );
+        assert(ethAmountReceived == 1 ether);
+        uint256 ethAmountAllReceived = factory.calculateSellReturn(
+            0.8 * 10 ** 9 * 1 ether
+        );
+        assert(ethAmountAllReceived == 20 ether);
+    }
+
+    function test_Sell() public {
+        address alice = makeAddr("alice");
+        vm.deal(alice, 30 ether);
+        address tokenAddress = factory.createToken("MyFirstToken", "MFT");
+        Token token = Token(tokenAddress);
+
+        vm.startPrank(alice);
+        factory.buy{value: 1 ether}(tokenAddress);
+        factory.sell(tokenAddress, 10_000_000 ether);
+        assert(token.balanceOf(alice) == 30_000_000 ether);
+        factory.sell(tokenAddress, 30_000_000 ether);
+        assert(token.balanceOf(alice) == 0);
+        vm.stopPrank();
+    }
 }

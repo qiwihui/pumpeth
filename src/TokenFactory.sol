@@ -50,9 +50,30 @@ contract TokenFactory {
         }
     }
 
+    function sell(address tokenAddress, uint256 amount) external {
+        require(tokens[tokenAddress], "Token not found");
+        require(amount > 0, "Token not enough");
+        Token token = Token(tokenAddress);
+        token.burn(msg.sender, amount);
+        uint256 receivedETH = calculateSellReturn(amount);
+        collateral[tokenAddress] -= receivedETH;
+        // send ether
+        (bool success, ) = msg.sender.call{value: receivedETH}(new bytes(0));
+        require(success, "ETH send failed");
+    }
+
     // TODO: Bonding curve
-    function calculateBuyReturn(uint256 ethAmount) public pure returns (uint256) {
+    function calculateBuyReturn(
+        uint256 ethAmount
+    ) public pure returns (uint256) {
         return (ethAmount * FUNDING_SUPPLY) / FUNDING_GOAL;
+    }
+
+    // TODO: Bonding curve
+    function calculateSellReturn(
+        uint256 tokenAmount
+    ) public pure returns (uint256) {
+        return (tokenAmount * FUNDING_GOAL) / FUNDING_SUPPLY;
     }
 
     function createLiquilityPool(
