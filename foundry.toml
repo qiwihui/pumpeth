@@ -6,4 +6,6 @@ libs = ["lib"]
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
 
 [dependencies]
-"@openzeppelin-contracts" = { version= "5.0.2"}
+"@openzeppelin-contracts" = { version = "5.0.2" }
+"@uniswap-v2-core" = { version = "1.0.1" }
+"@uniswap-v2-periphery" = { version = "1.1.0-beta.0" }

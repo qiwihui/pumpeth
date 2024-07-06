@@ -4,3 +4,15 @@ name = "@openzeppelin-contracts"
 version = "5.0.2"
 source = "https://soldeer-revisions.s3.amazonaws.com/@openzeppelin-contracts/5_0_2_14-03-2024_06:11:59_contracts.zip"
 checksum = "8bc4f0acc7c187771b878d46f7de4bfad1acad2eb5d096d9d05d34035853f5c3"
+
+[[dependencies]]
+name = "@uniswap-v2-core"
+version = "1.0.1"
+source = "https://soldeer-revisions.s3.amazonaws.com/@uniswap-v2-core/1_0_1_22-01-2024_13:18:30_v2-core.zip"
+checksum = "efebb89237048771c19f52d3ce87ec4d0c591279bf1977c49f9e70e5fff530f0"
+
+[[dependencies]]
+name = "@uniswap-v2-periphery"
+version = "1.1.0-beta.0"
+source = "https://soldeer-revisions.s3.amazonaws.com/@uniswap-v2-periphery/1_1_0-beta_0_22-01-2024_13:18:39_v2-periphery.zip"
+checksum = "3bdc6134f1a89bc72052acde4882eb165e27f220982f53b399d7a1121bf2ab06"

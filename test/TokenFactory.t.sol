@@ -19,4 +19,28 @@ contract TokenFactoryTest is Test {
         Token token = Token(tokenAddress);
         assert(token.totalSupply() == factory.INITIAL_SUPPLY());
     }
+
+    function test_CalculateBuyReturn() public {
+        // 1 ether, 0.8B / 20 = 40M
+        uint256 tokenAmountBuyed = factory.calculateBuyReturn(1 ether);
+        assert(tokenAmountBuyed == 40_000_000 ether);
+        uint256 tokenAmountAllBuyed = factory.calculateBuyReturn(20 ether);
+        assert(tokenAmountAllBuyed == 0.8 * 10 ** 9 * 1 ether);
+    }
+
+    function test_Buy() public {
+        address tokenAddress = factory.createToken("MyFirstToken", "MFT");
+        Token token = Token(tokenAddress);
+
+        address alice = makeAddr("alice");
+        vm.deal(alice, 30 ether);
+
+        vm.startPrank(alice);
+        factory.buy{value: 1 ether}(tokenAddress);
+        assert(token.balanceOf(alice) == 40_000_000 ether);
+
+        factory.buy{value: 18 ether}(tokenAddress);
+        assert(token.balanceOf(alice) == 760_000_000 ether); // 19 ETH
+        vm.stopPrank();
+    }
 }
