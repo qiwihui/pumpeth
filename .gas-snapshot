@@ -1,0 +1,6 @@
+TokenFactoryTest:test_Buy() (gas: 697689)
+TokenFactoryTest:test_BuyForked() (gas: 3344993)
+TokenFactoryTest:test_CalculateBuyReturn() (gas: 7144)
+TokenFactoryTest:test_CalculateSellReturn() (gas: 6961)
+TokenFactoryTest:test_CreateToken() (gas: 623161)
+TokenFactoryTest:test_Sell() (gas: 669993)
