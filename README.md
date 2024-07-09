@@ -23,3 +23,10 @@ contract TokenFactory
     - calculateSellReturn()
     - transfer
 ```
+
+TODO:
+
+1. [x] check token state
+2. [ ] Bonding Curve
+3. [ ] Fork sepolia, test uniswap
+4. [ ] mini proxy

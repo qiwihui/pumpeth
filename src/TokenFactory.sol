@@ -7,12 +7,17 @@ import {IUniswapV2Pair} from "@uniswap-v2-core-1.0.1/contracts/interfaces/IUnisw
 import {IUniswapV2Router01} from "@uniswap-v2-periphery-1.1.0-beta.0/contracts/interfaces/IUniswapV2Router01.sol";
 
 contract TokenFactory {
+    enum TokenState {
+        NOT_CREATED,
+        FUNDING,
+        TRADING
+    }
     uint256 public constant MAX_SUPPLY = 10 ** 9 * 10 ** 18;
     uint256 public constant INITIAL_SUPPLY = (MAX_SUPPLY * 1) / 5;
     uint256 public constant FUNDING_SUPPLY = (MAX_SUPPLY * 4) / 5;
     uint256 public constant FUNDING_GOAL = 20 ether;
-    mapping(address => bool) tokens;
-    mapping(address => uint256) collateral;
+    mapping(address => TokenState) public tokens;
+    mapping(address => uint256) public collateral;
 
     address public constant UNISWAP_V2_FACTORY =
         0xB7f907f7A9eBC822a80BD25E224be42Ce0A698A0;
@@ -24,12 +29,12 @@ contract TokenFactory {
         string memory symbol
     ) public returns (address) {
         Token token = new Token(name, symbol, INITIAL_SUPPLY);
-        tokens[address(token)] = true;
+        tokens[address(token)] = TokenState.FUNDING;
         return address(token);
     }
 
     function buy(address tokenAddress) external payable {
-        require(tokens[tokenAddress], "Token not found");
+        require(tokens[tokenAddress] == TokenState.FUNDING, "Token not found");
         require(msg.value > 0, "ETH not enough");
         uint256 amount = calculateBuyReturn(msg.value);
         Token token = Token(tokenAddress);
@@ -47,11 +52,12 @@ contract TokenFactory {
             );
             burnLiquidityToken(pair, liquidity);
             collateral[tokenAddress] = 0;
+            tokens[tokenAddress] = TokenState.TRADING;
         }
     }
 
     function sell(address tokenAddress, uint256 amount) external {
-        require(tokens[tokenAddress], "Token not found");
+        require(tokens[tokenAddress] == TokenState.FUNDING, "Token not found");
         require(amount > 0, "Token not enough");
         Token token = Token(tokenAddress);
         token.burn(msg.sender, amount);

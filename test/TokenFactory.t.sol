@@ -15,6 +15,7 @@ contract TokenFactoryTest is Test {
     function test_CreateToken() public {
         address tokenAddress = factory.createToken("MyFirstToken", "MFT");
         assert(tokenAddress != address(0));
+        assert(factory.tokens(tokenAddress) == TokenFactory.TokenState.FUNDING);
 
         Token token = Token(tokenAddress);
         assert(token.totalSupply() == factory.INITIAL_SUPPLY());
