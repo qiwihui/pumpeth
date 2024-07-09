@@ -14,9 +14,11 @@ contract TokenFactoryTest is Test {
     uint256 mainnetFork;
     IUniswapV2Factory uniswapFactory;
     IUniswapV2Router01 router;
+    Token public tokenImplemetation;
 
     function setUp() public {
-        factory = new TokenFactory();
+        tokenImplemetation = new Token();
+        factory = new TokenFactory(address(tokenImplemetation));
         mainnetFork = vm.createSelectFork("mainnet");
         uniswapFactory = IUniswapV2Factory(factory.UNISWAP_V2_FACTORY());
         router = IUniswapV2Router01(factory.UNISWAP_V2_ROUTER());
@@ -28,6 +30,8 @@ contract TokenFactoryTest is Test {
         assert(factory.tokens(tokenAddress) == TokenFactory.TokenState.FUNDING);
 
         Token token = Token(tokenAddress);
+        assertEq(token.name(), "MyFirstToken");
+        assertEq(token.symbol(), "MFT");
         assert(token.totalSupply() == factory.INITIAL_SUPPLY());
     }
 

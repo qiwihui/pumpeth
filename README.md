@@ -28,5 +28,5 @@ TODO:
 
 1. [x] check token state
 2. [x] Fork mainnet, test uniswap
-3. [ ] mini proxy
+3. [ ] minimal proxy
 4. [ ] Bonding Curve

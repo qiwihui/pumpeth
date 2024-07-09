@@ -5,6 +5,7 @@ import {Token} from "./Token.sol";
 import {IUniswapV2Factory} from "@uniswap-v2-core-1.0.1/contracts/interfaces/IUniswapV2Factory.sol";
 import {IUniswapV2Pair} from "@uniswap-v2-core-1.0.1/contracts/interfaces/IUniswapV2Pair.sol";
 import {IUniswapV2Router01} from "@uniswap-v2-periphery-1.1.0-beta.0/contracts/interfaces/IUniswapV2Router01.sol";
+import {Clones} from "@openzeppelin-contracts-5.0.2/proxy/Clones.sol";
 
 contract TokenFactory {
     enum TokenState {
@@ -18,19 +19,26 @@ contract TokenFactory {
     uint256 public constant FUNDING_GOAL = 20 ether;
     mapping(address => TokenState) public tokens;
     mapping(address => uint256) public collateral;
+    address public immutable tokenImplementation;
 
     address public constant UNISWAP_V2_FACTORY =
         0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f;
     address public constant UNISWAP_V2_ROUTER =
         0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
 
+    constructor(address _tokenImplementation) {
+        tokenImplementation = _tokenImplementation;
+    }
+
     function createToken(
         string memory name,
         string memory symbol
     ) public returns (address) {
-        Token token = new Token(name, symbol, INITIAL_SUPPLY);
-        tokens[address(token)] = TokenState.FUNDING;
-        return address(token);
+        address tokenAddress = Clones.clone(tokenImplementation);
+        Token token = Token(tokenAddress);
+        token.initialize(name, symbol, INITIAL_SUPPLY);
+        tokens[tokenAddress] = TokenState.FUNDING;
+        return tokenAddress;
     }
 
     function buy(address tokenAddress) external payable {
