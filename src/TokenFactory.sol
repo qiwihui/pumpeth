@@ -20,9 +20,9 @@ contract TokenFactory {
     mapping(address => uint256) public collateral;
 
     address public constant UNISWAP_V2_FACTORY =
-        0xB7f907f7A9eBC822a80BD25E224be42Ce0A698A0;
+        0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f;
     address public constant UNISWAP_V2_ROUTER =
-        0x425141165d3DE9FEC831896C016617a52363b687;
+        0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
 
     function createToken(
         string memory name,

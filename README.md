@@ -27,6 +27,6 @@ contract TokenFactory
 TODO:
 
 1. [x] check token state
-2. [ ] Bonding Curve
-3. [ ] Fork sepolia, test uniswap
-4. [ ] mini proxy
+2. [x] Fork mainnet, test uniswap
+3. [ ] mini proxy
+4. [ ] Bonding Curve
