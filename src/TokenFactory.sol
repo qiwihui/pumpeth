@@ -6,8 +6,9 @@ import {IUniswapV2Factory} from "@uniswap-v2-core-1.0.1/contracts/interfaces/IUn
 import {IUniswapV2Pair} from "@uniswap-v2-core-1.0.1/contracts/interfaces/IUniswapV2Pair.sol";
 import {IUniswapV2Router01} from "@uniswap-v2-periphery-1.1.0-beta.0/contracts/interfaces/IUniswapV2Router01.sol";
 import {Clones} from "@openzeppelin-contracts-5.0.2/proxy/Clones.sol";
+import {BancorFormula} from "./BancorFormula.sol";
 
-contract TokenFactory {
+contract TokenFactory is BancorFormula {
     enum TokenState {
         NOT_CREATED,
         FUNDING,
@@ -21,13 +22,16 @@ contract TokenFactory {
     mapping(address => uint256) public collateral;
     address public immutable tokenImplementation;
 
+    uint32 reserveRatio;
+
     address public constant UNISWAP_V2_FACTORY =
         0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f;
     address public constant UNISWAP_V2_ROUTER =
         0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
 
-    constructor(address _tokenImplementation) {
+    constructor(address _tokenImplementation, uint32 _reserveRatio) {
         tokenImplementation = _tokenImplementation;
+        reserveRatio = _reserveRatio;
     }
 
     function createToken(
@@ -36,27 +40,35 @@ contract TokenFactory {
     ) public returns (address) {
         address tokenAddress = Clones.clone(tokenImplementation);
         Token token = Token(tokenAddress);
-        token.initialize(name, symbol, INITIAL_SUPPLY);
+        token.initialize(name, symbol, 1);
         tokens[tokenAddress] = TokenState.FUNDING;
+        collateral[tokenAddress] = 1;
         return tokenAddress;
     }
 
     function buy(address tokenAddress) external payable {
         require(tokens[tokenAddress] == TokenState.FUNDING, "Token not found");
         require(msg.value > 0, "ETH not enough");
-        uint256 amount = calculateBuyReturn(msg.value);
         Token token = Token(tokenAddress);
+        // uint256 amount = calculateBuyReturn(msg.value);
+        uint256 amount = calculatePurchaseReturn(
+            token.totalSupply(),
+            collateral[tokenAddress],
+            reserveRatio,
+            msg.value
+        );
         uint256 availableSupply = MAX_SUPPLY - token.totalSupply();
         require(amount <= availableSupply, "Token not enough");
         collateral[tokenAddress] += msg.value;
         token.mint(msg.sender, amount);
         // when reach FUNDING_GOAL
         if (collateral[tokenAddress] >= FUNDING_GOAL) {
+            token.mint(address(this), INITIAL_SUPPLY);
             address pair = createLiquilityPool(tokenAddress);
             uint256 liquidity = addLiquidity(
                 tokenAddress,
                 INITIAL_SUPPLY,
-                collateral[tokenAddress]
+                collateral[tokenAddress] - 1
             );
             burnLiquidityToken(pair, liquidity);
             collateral[tokenAddress] = 0;
@@ -69,7 +81,13 @@ contract TokenFactory {
         require(amount > 0, "Token not enough");
         Token token = Token(tokenAddress);
         token.burn(msg.sender, amount);
-        uint256 receivedETH = calculateSellReturn(amount);
+        // uint256 receivedETH = calculateSellReturn(amount);
+        uint256 receivedETH = calculateSaleReturn(
+            token.totalSupply(),
+            collateral[tokenAddress],
+            reserveRatio,
+            amount
+        );
         collateral[tokenAddress] -= receivedETH;
         // send ether
         (bool success, ) = msg.sender.call{value: receivedETH}(new bytes(0));

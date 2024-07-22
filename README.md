@@ -24,9 +24,7 @@ contract TokenFactory
     - transfer
 ```
 
-TODO:
-
 1. [x] check token state
 2. [x] Fork mainnet, test uniswap
 3. [x] minimal proxy
-4. [ ] Bonding Curve
+4. [x] Bonding Curve
