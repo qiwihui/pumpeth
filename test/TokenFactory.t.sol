@@ -18,7 +18,7 @@ contract TokenFactoryTest is Test {
 
     function setUp() public {
         tokenImplemetation = new Token();
-        factory = new TokenFactory(address(tokenImplemetation), 500000); // 1/2
+        factory = new TokenFactory(address(tokenImplemetation)); // 1/2
         mainnetFork = vm.createSelectFork("mainnet");
         uniswapFactory = IUniswapV2Factory(factory.UNISWAP_V2_FACTORY());
         router = IUniswapV2Router01(factory.UNISWAP_V2_ROUTER());
@@ -32,7 +32,6 @@ contract TokenFactoryTest is Test {
         Token token = Token(tokenAddress);
         assertEq(token.name(), "MyFirstToken");
         assertEq(token.symbol(), "MFT");
-        assert(token.totalSupply() == 1);
     }
 
     function test_CalculateBuyReturn() public {
@@ -54,12 +53,12 @@ contract TokenFactoryTest is Test {
         factory.buy{value: 1 ether}(tokenAddress);
         // assert(token.balanceOf(alice) == 40_000_000 ether);
 
-        factory.buy{value: 18 ether}(tokenAddress);
+        factory.buy{value: 19 ether}(tokenAddress);
         // assert(token.balanceOf(alice) == 760_000_000 ether); // 19 ETH
         vm.stopPrank();
     }
 
-    function test_BuyForked() public {
+    function test_ForkedBuy() public {
         vm.selectFork(mainnetFork);
         assertEq(vm.activeFork(), mainnetFork);
 
@@ -110,7 +109,7 @@ contract TokenFactoryTest is Test {
         factory.sell(tokenAddress, 1_000_000);
         // assert(token.balanceOf(alice) == 30_000_000 ether);
         factory.sell(tokenAddress, 1_000_000);
-        assert(token.balanceOf(alice) == 993443601);
+        assert(token.balanceOf(alice) == 59472943757613679998000000);
         vm.stopPrank();
     }
 }

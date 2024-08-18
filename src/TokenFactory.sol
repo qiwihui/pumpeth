@@ -6,9 +6,9 @@ import {IUniswapV2Factory} from "@uniswap-v2-core-1.0.1/contracts/interfaces/IUn
 import {IUniswapV2Pair} from "@uniswap-v2-core-1.0.1/contracts/interfaces/IUniswapV2Pair.sol";
 import {IUniswapV2Router01} from "@uniswap-v2-periphery-1.1.0-beta.0/contracts/interfaces/IUniswapV2Router01.sol";
 import {Clones} from "@openzeppelin-contracts-5.0.2/proxy/Clones.sol";
-import {BancorFormula} from "./BancorFormula.sol";
+import {BondingCurve} from "./BondingCurve.sol";
 
-contract TokenFactory is BancorFormula {
+contract TokenFactory is BondingCurve {
     enum TokenState {
         NOT_CREATED,
         FUNDING,
@@ -18,20 +18,19 @@ contract TokenFactory is BancorFormula {
     uint256 public constant INITIAL_SUPPLY = (MAX_SUPPLY * 1) / 5;
     uint256 public constant FUNDING_SUPPLY = (MAX_SUPPLY * 4) / 5;
     uint256 public constant FUNDING_GOAL = 20 ether;
+    uint256 public constant a = 16319324419;
+    uint256 public constant b = 1000000000;
     mapping(address => TokenState) public tokens;
     mapping(address => uint256) public collateral;
     address public immutable tokenImplementation;
-
-    uint32 reserveRatio;
 
     address public constant UNISWAP_V2_FACTORY =
         0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f;
     address public constant UNISWAP_V2_ROUTER =
         0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
 
-    constructor(address _tokenImplementation, uint32 _reserveRatio) {
+    constructor(address _tokenImplementation) {
         tokenImplementation = _tokenImplementation;
-        reserveRatio = _reserveRatio;
     }
 
     function createToken(
@@ -40,9 +39,8 @@ contract TokenFactory is BancorFormula {
     ) public returns (address) {
         address tokenAddress = Clones.clone(tokenImplementation);
         Token token = Token(tokenAddress);
-        token.initialize(name, symbol, 1);
+        token.initialize(name, symbol);
         tokens[tokenAddress] = TokenState.FUNDING;
-        collateral[tokenAddress] = 1;
         return tokenAddress;
     }
 
@@ -50,16 +48,16 @@ contract TokenFactory is BancorFormula {
         require(tokens[tokenAddress] == TokenState.FUNDING, "Token not found");
         require(msg.value > 0, "ETH not enough");
         Token token = Token(tokenAddress);
-        // uint256 amount = calculateBuyReturn(msg.value);
-        uint256 amount = calculatePurchaseReturn(
-            token.totalSupply(),
-            collateral[tokenAddress],
-            reserveRatio,
-            msg.value
-        );
-        uint256 availableSupply = MAX_SUPPLY - token.totalSupply();
+        uint256 valueToBuy = msg.value;
+        // TODO: convert collateral[tokenAddress] to memory
+        // TODO: Add reentrancy check
+        if(collateral[tokenAddress] + valueToBuy > FUNDING_GOAL) {
+            valueToBuy = FUNDING_GOAL - collateral[tokenAddress];
+        }
+        uint256 amount = getAmountOut(a, b, token.totalSupply(), valueToBuy);
+        uint256 availableSupply = FUNDING_SUPPLY - token.totalSupply();
         require(amount <= availableSupply, "Token not enough");
-        collateral[tokenAddress] += msg.value;
+        collateral[tokenAddress] += valueToBuy;
         token.mint(msg.sender, amount);
         // when reach FUNDING_GOAL
         if (collateral[tokenAddress] >= FUNDING_GOAL) {
@@ -68,11 +66,15 @@ contract TokenFactory is BancorFormula {
             uint256 liquidity = addLiquidity(
                 tokenAddress,
                 INITIAL_SUPPLY,
-                collateral[tokenAddress] - 1
+                collateral[tokenAddress]
             );
             burnLiquidityToken(pair, liquidity);
             collateral[tokenAddress] = 0;
             tokens[tokenAddress] = TokenState.TRADING;
+        }
+        if (valueToBuy < msg.value) {
+            (bool success, ) = msg.sender.call{value: msg.value-valueToBuy}(new bytes(0));
+            require(success, "ETH send failed");
         }
     }
 
@@ -81,13 +83,7 @@ contract TokenFactory is BancorFormula {
         require(amount > 0, "Token not enough");
         Token token = Token(tokenAddress);
         token.burn(msg.sender, amount);
-        // uint256 receivedETH = calculateSellReturn(amount);
-        uint256 receivedETH = calculateSaleReturn(
-            token.totalSupply(),
-            collateral[tokenAddress],
-            reserveRatio,
-            amount
-        );
+        uint256 receivedETH = getFundsNeeded(a, b, token.totalSupply(), amount);
         collateral[tokenAddress] -= receivedETH;
         // send ether
         (bool success, ) = msg.sender.call{value: receivedETH}(new bytes(0));

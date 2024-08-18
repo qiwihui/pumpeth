@@ -10,6 +10,7 @@ libs = ["lib"]
 "@uniswap-v2-core" = { version = "1.0.1" }
 "@uniswap-v2-periphery" = { version = "1.1.0-beta.0" }
 "@openzeppelin-contracts-upgradeable" = { version = "5.0.2" }
+solady = { version = "0.0.233" }
 
 [rpc_endpoints]
 mainnet = "https://rpc.mevblocker.io"

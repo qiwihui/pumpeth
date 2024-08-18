@@ -22,3 +22,9 @@ name = "@openzeppelin-contracts-upgradeable"
 version = "5.0.2"
 source = "https://soldeer-revisions.s3.amazonaws.com/@openzeppelin-contracts-upgradeable/5_0_2_14-03-2024_06:12:07_contracts-upgradeable.zip"
 checksum = "fb3f8db8541fc01636f91b0e7d9dd6f450f1bf7e2b4a17e96caf6e779ace8f5b"
+
+[[dependencies]]
+name = "solady"
+version = "0.0.233"
+source = "https://soldeer-revisions.s3.amazonaws.com/solady/0_0_233_18-08-2024_08:20:28_solady.zip"
+checksum = "dfae622e1c1dc9efcf7f81d1a70b9eba1b914733bef3972d170affab948bfd45"
