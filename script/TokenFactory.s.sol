@@ -23,7 +23,8 @@ contract CounterScript is Script {
             address(tokenImplemetation),
             UNISWAP_V2_ROUTER,
             UNISWAP_V2_FACTORY,
-            address(bondingCurve)
+            address(bondingCurve),
+            100
         );
         vm.stopBroadcast();
     }

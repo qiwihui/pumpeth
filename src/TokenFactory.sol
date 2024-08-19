@@ -6,10 +6,12 @@ import {IUniswapV2Router01} from "@uniswap-v2-periphery-1.1.0-beta.0/contracts/i
 import {Clones} from "@openzeppelin-contracts-5.0.2/proxy/Clones.sol";
 import {ReentrancyGuard} from "@openzeppelin-contracts-5.0.2/utils/ReentrancyGuard.sol";
 import "@openzeppelin-contracts-5.0.2/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin-contracts-5.0.2/access/Ownable.sol";
+
 import {BondingCurve} from "./BondingCurve.sol";
 import {Token} from "./Token.sol";
 
-contract TokenFactory is ReentrancyGuard {
+contract TokenFactory is ReentrancyGuard, Ownable {
     enum TokenState {
         NOT_CREATED,
         FUNDING,
@@ -19,6 +21,7 @@ contract TokenFactory is ReentrancyGuard {
     uint256 public constant INITIAL_SUPPLY = (MAX_SUPPLY * 1) / 5;
     uint256 public constant FUNDING_SUPPLY = (MAX_SUPPLY * 4) / 5;
     uint256 public constant FUNDING_GOAL = 20 ether;
+    uint256 public constant FEE_DENOMINATOR = 10000;
 
     mapping(address => TokenState) public tokens;
     mapping(address => uint256) public collateral;
@@ -26,62 +29,93 @@ contract TokenFactory is ReentrancyGuard {
     address public uniswapV2Router;
     address public uniswapV2Factory;
     BondingCurve public bondingCurve;
+    uint256 public feePercent; // bp
+    uint256 public fee;
+
+    // Events
+    event TokenCreated(address indexed token, uint256 timestamp);
+    event TokenLiqudityAdded(address indexed token, uint256 timestamp);
 
     constructor(
         address _tokenImplementation,
         address _uniswapV2Router,
         address _uniswapV2Factory,
-        address _bondingCurveAddr
-    ) {
+        address _bondingCurve,
+        uint256 _feePercent
+    ) Ownable(msg.sender) {
         tokenImplementation = _tokenImplementation;
         uniswapV2Router = _uniswapV2Router;
         uniswapV2Factory = _uniswapV2Factory;
-        bondingCurve = BondingCurve(_bondingCurveAddr);
+        bondingCurve = BondingCurve(_bondingCurve);
+        feePercent = _feePercent;
+    }
+
+    // Admin functions
+
+    function setFeePercent(uint256 _feePercent) external onlyOwner {
+        feePercent = _feePercent;
+    }
+
+    function claimFee() external onlyOwner {
+        (bool success, ) = msg.sender.call{value: fee}(new bytes(0));
+        require(success, "ETH send failed");
+        fee = 0;
     }
 
     // Token functions
+
     function createToken(
         string memory name,
         string memory symbol
-    ) public returns (address) {
+    ) external returns (address) {
         address tokenAddress = Clones.clone(tokenImplementation);
         Token token = Token(tokenAddress);
         token.initialize(name, symbol);
         tokens[tokenAddress] = TokenState.FUNDING;
+        emit TokenCreated(tokenAddress, block.timestamp);
         return tokenAddress;
     }
 
-    function buy(address tokenAddress) public payable nonReentrant {
+    function buy(address tokenAddress) external payable nonReentrant {
         require(tokens[tokenAddress] == TokenState.FUNDING, "Token not found");
         require(msg.value > 0, "ETH not enough");
+        // calculate fee
+        uint256 _fee = calculateFee(msg.value, feePercent);
+        uint256 valueToBuy = msg.value - _fee;
+        uint256 valueToReturn;
+        fee += _fee;
         Token token = Token(tokenAddress);
-        uint256 valueToBuy = msg.value;
-        // TODO: convert collateral[tokenAddress] to memory
-        if (collateral[tokenAddress] + valueToBuy > FUNDING_GOAL) {
-            valueToBuy = FUNDING_GOAL - collateral[tokenAddress];
+        uint256 tokenCollateral = collateral[tokenAddress];
+        if (tokenCollateral + valueToBuy > FUNDING_GOAL) {
+            valueToReturn = tokenCollateral + valueToBuy - FUNDING_GOAL;
+            valueToBuy = FUNDING_GOAL - tokenCollateral;
         }
         uint256 amount = bondingCurve.getAmountOut(
             token.totalSupply(),
             valueToBuy
         );
         uint256 availableSupply = FUNDING_SUPPLY - token.totalSupply();
-        require(amount <= availableSupply, "Token not enough");
-        collateral[tokenAddress] += valueToBuy;
+        require(amount <= availableSupply, "Token supply not enough");
+
+        tokenCollateral += valueToBuy;
         token.mint(msg.sender, amount);
-        // when reach FUNDING_GOAL
-        if (collateral[tokenAddress] >= FUNDING_GOAL) {
+        // when reached FUNDING_GOAL
+        if (tokenCollateral >= FUNDING_GOAL) {
             token.mint(address(this), INITIAL_SUPPLY);
             address pair = createLiquilityPool(tokenAddress);
             uint256 liquidity = addLiquidity(
                 tokenAddress,
                 INITIAL_SUPPLY,
-                collateral[tokenAddress]
+                tokenCollateral
             );
             burnLiquidityToken(pair, liquidity);
-            collateral[tokenAddress] = 0;
+            tokenCollateral = 0;
             tokens[tokenAddress] = TokenState.TRADING;
+            emit TokenLiqudityAdded(tokenAddress, block.timestamp);
         }
-        if (valueToBuy < msg.value) {
+        collateral[tokenAddress] = tokenCollateral;
+        // return left
+        if (valueToReturn > 0) {
             (bool success, ) = msg.sender.call{value: msg.value - valueToBuy}(
                 new bytes(0)
             );
@@ -89,7 +123,7 @@ contract TokenFactory is ReentrancyGuard {
         }
     }
 
-    function sell(address tokenAddress, uint256 amount) public nonReentrant {
+    function sell(address tokenAddress, uint256 amount) external nonReentrant {
         require(
             tokens[tokenAddress] == TokenState.FUNDING,
             "Token is not funding"
@@ -100,6 +134,9 @@ contract TokenFactory is ReentrancyGuard {
             token.totalSupply(),
             amount
         );
+        // calculate fee
+        uint256 _fee = calculateFee(receivedETH, feePercent);
+        receivedETH -= _fee;
         token.burn(msg.sender, amount);
         collateral[tokenAddress] -= receivedETH;
         // send ether
@@ -107,6 +144,8 @@ contract TokenFactory is ReentrancyGuard {
         (bool success, ) = msg.sender.call{value: receivedETH}(new bytes(0));
         require(success, "ETH send failed");
     }
+
+    // Internal functions
 
     function createLiquilityPool(
         address tokenAddress
@@ -140,5 +179,12 @@ contract TokenFactory is ReentrancyGuard {
 
     function burnLiquidityToken(address pair, uint256 liquidity) internal {
         SafeERC20.safeTransfer(IERC20(pair), address(0), liquidity);
+    }
+
+    function calculateFee(
+        uint256 _amount,
+        uint256 _feePercent
+    ) internal pure returns (uint256) {
+        return (_amount * _feePercent) / FEE_DENOMINATOR;
     }
 }

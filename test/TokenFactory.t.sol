@@ -15,6 +15,7 @@ contract TokenFactoryTest is Test {
     IUniswapV2Router01 router;
     Token public tokenImplemetation;
     BondingCurve public bondingCurve;
+    uint256 feePercent = 100;
 
     address public constant UNISWAP_V2_FACTORY =
         0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f;
@@ -28,13 +29,16 @@ contract TokenFactoryTest is Test {
             address(tokenImplemetation),
             UNISWAP_V2_ROUTER,
             UNISWAP_V2_FACTORY,
-            address(bondingCurve)
+            address(bondingCurve),
+            feePercent
         );
         uniswapFactory = IUniswapV2Factory(factory.uniswapV2Factory());
         router = IUniswapV2Router01(factory.uniswapV2Router());
     }
 
     function test_CreateToken() public {
+        vm.expectEmit(false, false, false, false, address(factory));
+        emit TokenFactory.TokenCreated(address(1), 1);
         address tokenAddress = factory.createToken("MyFirstToken", "MFT");
         assert(tokenAddress != address(0));
         assert(factory.tokens(tokenAddress) == TokenFactory.TokenState.FUNDING);
@@ -56,6 +60,9 @@ contract TokenFactoryTest is Test {
         factory.buy{value: 1 ether}(tokenAddress);
         assert(token.balanceOf(alice) > 0);
         factory.buy{value: 18 ether}(tokenAddress);
+        assert(
+            factory.fee() == (19 ether * feePercent) / factory.FEE_DENOMINATOR()
+        );
         vm.stopPrank();
     }
 
@@ -68,9 +75,29 @@ contract TokenFactoryTest is Test {
         vm.startPrank(alice);
         factory.buy{value: 1 ether}(tokenAddress);
         factory.sell(tokenAddress, 1_000_000);
-        // assert(token.balanceOf(alice) == 30_000_000 ether);
         factory.sell(tokenAddress, 1_000_000);
-        assert(token.balanceOf(alice) == 59472943757613679998000000);
+        assert(token.balanceOf(alice) == 58895387276865134998000000);
         vm.stopPrank();
     }
+
+    function test_claimFee() public {
+        address tokenAddress = factory.createToken("MyFirstToken", "MFT");
+
+        address alice = makeAddr("alice");
+        vm.deal(alice, 30 ether);
+
+        vm.startPrank(alice);
+        factory.buy{value: 1 ether}(tokenAddress);
+
+        vm.expectRevert(abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", alice));
+        factory.claimFee();
+        assert(
+            factory.fee() == (1 ether * feePercent) / factory.FEE_DENOMINATOR()
+        );
+        vm.stopPrank();
+        factory.claimFee();
+        assert(factory.fee() == 0);
+    }
+
+    receive() external payable {}
 }

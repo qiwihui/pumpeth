@@ -32,7 +32,8 @@ contract TokenFactoryForkedTest is Test {
             address(tokenImplemetation),
             UNISWAP_V2_ROUTER,
             UNISWAP_V2_FACTORY,
-            address(bondingCurve)
+            address(bondingCurve),
+            100
         );
         uniswapFactory = IUniswapV2Factory(factory.uniswapV2Factory());
         router = IUniswapV2Router01(factory.uniswapV2Router());
@@ -49,7 +50,9 @@ contract TokenFactoryForkedTest is Test {
 
         vm.startPrank(alice);
         factory.buy{value: 1 ether}(tokenAddress);
-        assert(token.balanceOf(alice) == 59472943757613680000000000);
+        assert(token.balanceOf(alice) == 58895387276865135000000000);
+        vm.expectEmit(true, false, false, false);
+        emit TokenFactory.TokenLiqudityAdded(tokenAddress, 1);
         factory.buy{value: 25 ether}(tokenAddress);
         assert(token.balanceOf(alice) == 799999999977117981000000000);
         assert(address(alice).balance > 9 ether); // substract some gas
@@ -86,20 +89,23 @@ contract TokenFactoryForkedTest is Test {
         vm.startPrank(alice);
 
         factory.buy{value: 1 ether}(tokenAddress);
-        factory.sell(tokenAddress, 59472943757613680000000000);
+        factory.sell(tokenAddress, 58895387276865135000000000);
 
-        factory.buy{value: 19 ether - 1}(tokenAddress);
-        factory.sell(tokenAddress, 1);
+        factory.buy{value: 20 ether}(tokenAddress);
+        factory.sell(tokenAddress, 100);
 
         // all buyed, revert when selling
-        factory.buy{value: 1 ether + 1}(tokenAddress);
+        factory.buy{value: 1 ether}(tokenAddress);
         vm.expectRevert();
         factory.sell(tokenAddress, 40_000_000 ether);
         vm.stopPrank();
     }
 
     function test_ForkedSellEmpty() public {
-        address alice = makeAddr("alice");
+        vm.selectFork(mainnetFork);
+        assertEq(vm.activeFork(), mainnetFork);
+
+        address alice = makeAddr("bob");
         vm.deal(alice, 30 ether);
         address tokenAddress = factory.createToken("MyFirstToken", "MFT");
 
