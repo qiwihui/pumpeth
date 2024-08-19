@@ -1,25 +1,27 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
-import {Token} from "./Token.sol";
 
 import {IUniswapV2Factory} from "@uniswap-v2-core-1.0.1/contracts/interfaces/IUniswapV2Factory.sol";
-import {IUniswapV2Pair} from "@uniswap-v2-core-1.0.1/contracts/interfaces/IUniswapV2Pair.sol";
 import {IUniswapV2Router01} from "@uniswap-v2-periphery-1.1.0-beta.0/contracts/interfaces/IUniswapV2Router01.sol";
 import {Clones} from "@openzeppelin-contracts-5.0.2/proxy/Clones.sol";
+import {ReentrancyGuard} from "@openzeppelin-contracts-5.0.2/utils/ReentrancyGuard.sol";
+import "@openzeppelin-contracts-5.0.2/token/ERC20/utils/SafeERC20.sol";
 import {BondingCurve} from "./BondingCurve.sol";
+import {Token} from "./Token.sol";
 
-contract TokenFactory is BondingCurve {
+contract TokenFactory is BondingCurve, ReentrancyGuard {
     enum TokenState {
         NOT_CREATED,
         FUNDING,
         TRADING
     }
-    uint256 public constant MAX_SUPPLY = 10 ** 9 * 10 ** 18;
+    uint256 public constant MAX_SUPPLY = 10 ** 9 * 1 ether; // 1 Billion
     uint256 public constant INITIAL_SUPPLY = (MAX_SUPPLY * 1) / 5;
     uint256 public constant FUNDING_SUPPLY = (MAX_SUPPLY * 4) / 5;
     uint256 public constant FUNDING_GOAL = 20 ether;
     uint256 public constant a = 16319324419;
     uint256 public constant b = 1000000000;
+
     mapping(address => TokenState) public tokens;
     mapping(address => uint256) public collateral;
     address public immutable tokenImplementation;
@@ -33,6 +35,7 @@ contract TokenFactory is BondingCurve {
         tokenImplementation = _tokenImplementation;
     }
 
+    // Token functions
     function createToken(
         string memory name,
         string memory symbol
@@ -44,14 +47,14 @@ contract TokenFactory is BondingCurve {
         return tokenAddress;
     }
 
-    function buy(address tokenAddress) external payable {
+    function buy(address tokenAddress) public payable nonReentrant {
         require(tokens[tokenAddress] == TokenState.FUNDING, "Token not found");
         require(msg.value > 0, "ETH not enough");
         Token token = Token(tokenAddress);
         uint256 valueToBuy = msg.value;
         // TODO: convert collateral[tokenAddress] to memory
         // TODO: Add reentrancy check
-        if(collateral[tokenAddress] + valueToBuy > FUNDING_GOAL) {
+        if (collateral[tokenAddress] + valueToBuy > FUNDING_GOAL) {
             valueToBuy = FUNDING_GOAL - collateral[tokenAddress];
         }
         uint256 amount = getAmountOut(a, b, token.totalSupply(), valueToBuy);
@@ -73,35 +76,32 @@ contract TokenFactory is BondingCurve {
             tokens[tokenAddress] = TokenState.TRADING;
         }
         if (valueToBuy < msg.value) {
-            (bool success, ) = msg.sender.call{value: msg.value-valueToBuy}(new bytes(0));
+            (bool success, ) = msg.sender.call{value: msg.value - valueToBuy}(
+                new bytes(0)
+            );
             require(success, "ETH send failed");
         }
     }
 
-    function sell(address tokenAddress, uint256 amount) external {
-        require(tokens[tokenAddress] == TokenState.FUNDING, "Token not found");
-        require(amount > 0, "Token not enough");
+    function sell(address tokenAddress, uint256 amount) public nonReentrant {
+        require(
+            tokens[tokenAddress] == TokenState.FUNDING,
+            "Token is not funding"
+        );
+        require(amount > 0, "Amount should be greater than zero");
         Token token = Token(tokenAddress);
         token.burn(msg.sender, amount);
-        uint256 receivedETH = getFundsNeeded(a, b, token.totalSupply(), amount);
+        uint256 receivedETH = getFundsReceived(
+            a,
+            b,
+            token.totalSupply(),
+            amount
+        );
         collateral[tokenAddress] -= receivedETH;
         // send ether
+        //slither-disable-next-line arbitrary-send-eth
         (bool success, ) = msg.sender.call{value: receivedETH}(new bytes(0));
         require(success, "ETH send failed");
-    }
-
-    // TODO: Bonding curve
-    function calculateBuyReturn(
-        uint256 ethAmount
-    ) public pure returns (uint256) {
-        return (ethAmount * FUNDING_SUPPLY) / FUNDING_GOAL;
-    }
-
-    // TODO: Bonding curve
-    function calculateSellReturn(
-        uint256 tokenAmount
-    ) public pure returns (uint256) {
-        return (tokenAmount * FUNDING_GOAL) / FUNDING_SUPPLY;
     }
 
     function createLiquilityPool(
@@ -134,7 +134,6 @@ contract TokenFactory is BondingCurve {
     }
 
     function burnLiquidityToken(address pair, uint256 liquidity) internal {
-        IUniswapV2Pair pool = IUniswapV2Pair(pair);
-        pool.transfer(address(0), liquidity);
+        SafeERC20.safeTransfer(IERC20(pair), address(0), liquidity);
     }
 }

@@ -13,4 +13,5 @@ libs = ["lib"]
 solady = { version = "0.0.233" }
 
 [rpc_endpoints]
-mainnet = "https://rpc.mevblocker.io"
+mainnet = "https://eth.llamarpc.com"
+local = "http://localhost:8545"
