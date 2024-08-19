@@ -6,11 +6,9 @@ import {BondingCurve} from "../src/BondingCurve.sol";
 
 contract BondingCurveTest is Test {
     BondingCurve bondingCurve;
-    uint256 public a = 16319324419;
-    uint256 public b = 1000000000;
 
     function setUp() public {
-        bondingCurve = new BondingCurve();
+        bondingCurve = new BondingCurve(16319324419, 1000000000);
     }
 
     function test_getFundsReceived() public {
@@ -18,11 +16,11 @@ contract BondingCurveTest is Test {
         uint256 deltaX = 800_000_000 ether;
         uint256 factor = 40_000_000 ether;
 
-        uint256 fundsReceived_1 = bondingCurve.getFundsReceived(a, b, x0, 1);
+        uint256 fundsReceived_1 = bondingCurve.getFundsReceived(x0, 1);
         console.logUint(fundsReceived_1);
 
         uint256 expectedFundsNeeded = 20 ether;
-        uint256 fundsReceived = bondingCurve.getFundsReceived(a, b, x0, deltaX);
+        uint256 fundsReceived = bondingCurve.getFundsReceived(x0, deltaX);
         assertGe(
             fundsReceived,
             expectedFundsNeeded,
@@ -37,12 +35,7 @@ contract BondingCurveTest is Test {
         uint256 amount = 0;
         uint256 totalAmount = 0;
         for (uint256 i = 20; i >= 1; i--) {
-            amount = bondingCurve.getFundsReceived(
-                a,
-                b,
-                i * factor,
-                factor
-            );
+            amount = bondingCurve.getFundsReceived(i * factor, factor);
             totalAmount += amount;
             console.logUint(amount);
         }
@@ -57,11 +50,11 @@ contract BondingCurveTest is Test {
         uint256 x0 = 0;
         uint256 deltaY = 20 ether;
 
-        uint256 amountOut_1 = bondingCurve.getAmountOut(a, b, x0, 1);
+        uint256 amountOut_1 = bondingCurve.getAmountOut(x0, 1);
         console.logUint(amountOut_1);
 
         uint256 expectedAmountOut = 800000000 ether;
-        uint256 amountOut = bondingCurve.getAmountOut(a, b, x0, deltaY);
+        uint256 amountOut = bondingCurve.getAmountOut(x0, deltaY);
         assertLe(
             amountOut,
             expectedAmountOut,
@@ -77,7 +70,7 @@ contract BondingCurveTest is Test {
         uint256 amount = 0;
         uint256 totalAmount = 0;
         for (uint256 i = 1; i <= 20; i++) {
-            amount = bondingCurve.getAmountOut(a, b, totalAmount, 1 ether);
+            amount = bondingCurve.getAmountOut(totalAmount, 1 ether);
             totalAmount += amount;
             console.logUint(amount);
         }
@@ -86,5 +79,16 @@ contract BondingCurveTest is Test {
             0.000001 ether,
             "Total amount calculation is incorrect"
         );
+    }
+
+    function test_getInOut() public {
+        uint256 x0 = 0;
+        uint256 amountOut = bondingCurve.getAmountOut(x0, 1 ether);
+
+        uint256 fundsReceived = bondingCurve.getFundsReceived(
+            amountOut,
+            amountOut
+        );
+        assertLe(fundsReceived, 1 ether);
     }
 }

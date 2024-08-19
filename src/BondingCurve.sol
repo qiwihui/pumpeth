@@ -7,13 +7,21 @@ contract BondingCurve {
     using FixedPointMathLib for uint256;
     using FixedPointMathLib for int256;
 
+    uint256 public immutable A; // = 16319324419;
+    uint256 public immutable B; // = 1000000000;
+
+    constructor(uint256 _a, uint256 _b) {
+        A = _a;
+        B = _b;
+    }
+
     // calculate the funds received for selling deltaX tokens
     function getFundsReceived(
-        uint256 a,
-        uint256 b,
         uint256 x0,
         uint256 deltaX
-    ) public pure returns (uint256 deltaY) {
+    ) public view returns (uint256 deltaY) {
+        uint256 a = A;
+        uint256 b = B;
         require(x0 >= deltaX);
         // calculate exp(b*x0), exp(b*x1)
         int256 exp_b_x0 = (int256(b.mulWad(x0))).expWad();
@@ -26,11 +34,11 @@ contract BondingCurve {
 
     // calculte the number of tokens that can be purchased for a given amount of funds
     function getAmountOut(
-        uint256 a,
-        uint256 b,
         uint256 x0,
         uint256 deltaY
-    ) public pure returns (uint256 deltaX) {
+    ) public view returns (uint256 deltaX) {
+        uint256 a = A;
+        uint256 b = B;
         // calculate exp(b*x0)
         uint256 exp_b_x0 = uint256((int256(b.mulWad(x0))).expWad());
 

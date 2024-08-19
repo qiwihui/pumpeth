@@ -9,7 +9,7 @@ import "@openzeppelin-contracts-5.0.2/token/ERC20/utils/SafeERC20.sol";
 import {BondingCurve} from "./BondingCurve.sol";
 import {Token} from "./Token.sol";
 
-contract TokenFactory is BondingCurve, ReentrancyGuard {
+contract TokenFactory is ReentrancyGuard {
     enum TokenState {
         NOT_CREATED,
         FUNDING,
@@ -19,20 +19,24 @@ contract TokenFactory is BondingCurve, ReentrancyGuard {
     uint256 public constant INITIAL_SUPPLY = (MAX_SUPPLY * 1) / 5;
     uint256 public constant FUNDING_SUPPLY = (MAX_SUPPLY * 4) / 5;
     uint256 public constant FUNDING_GOAL = 20 ether;
-    uint256 public constant a = 16319324419;
-    uint256 public constant b = 1000000000;
 
     mapping(address => TokenState) public tokens;
     mapping(address => uint256) public collateral;
     address public immutable tokenImplementation;
+    address public uniswapV2Router;
+    address public uniswapV2Factory;
+    BondingCurve public bondingCurve;
 
-    address public constant UNISWAP_V2_FACTORY =
-        0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f;
-    address public constant UNISWAP_V2_ROUTER =
-        0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
-
-    constructor(address _tokenImplementation) {
+    constructor(
+        address _tokenImplementation,
+        address _uniswapV2Router,
+        address _uniswapV2Factory,
+        address _bondingCurveAddr
+    ) {
         tokenImplementation = _tokenImplementation;
+        uniswapV2Router = _uniswapV2Router;
+        uniswapV2Factory = _uniswapV2Factory;
+        bondingCurve = BondingCurve(_bondingCurveAddr);
     }
 
     // Token functions
@@ -53,11 +57,13 @@ contract TokenFactory is BondingCurve, ReentrancyGuard {
         Token token = Token(tokenAddress);
         uint256 valueToBuy = msg.value;
         // TODO: convert collateral[tokenAddress] to memory
-        // TODO: Add reentrancy check
         if (collateral[tokenAddress] + valueToBuy > FUNDING_GOAL) {
             valueToBuy = FUNDING_GOAL - collateral[tokenAddress];
         }
-        uint256 amount = getAmountOut(a, b, token.totalSupply(), valueToBuy);
+        uint256 amount = bondingCurve.getAmountOut(
+            token.totalSupply(),
+            valueToBuy
+        );
         uint256 availableSupply = FUNDING_SUPPLY - token.totalSupply();
         require(amount <= availableSupply, "Token not enough");
         collateral[tokenAddress] += valueToBuy;
@@ -90,13 +96,11 @@ contract TokenFactory is BondingCurve, ReentrancyGuard {
         );
         require(amount > 0, "Amount should be greater than zero");
         Token token = Token(tokenAddress);
-        token.burn(msg.sender, amount);
-        uint256 receivedETH = getFundsReceived(
-            a,
-            b,
+        uint256 receivedETH = bondingCurve.getFundsReceived(
             token.totalSupply(),
             amount
         );
+        token.burn(msg.sender, amount);
         collateral[tokenAddress] -= receivedETH;
         // send ether
         //slither-disable-next-line arbitrary-send-eth
@@ -107,8 +111,8 @@ contract TokenFactory is BondingCurve, ReentrancyGuard {
     function createLiquilityPool(
         address tokenAddress
     ) internal returns (address) {
-        IUniswapV2Factory factory = IUniswapV2Factory(UNISWAP_V2_FACTORY);
-        IUniswapV2Router01 router = IUniswapV2Router01(UNISWAP_V2_ROUTER);
+        IUniswapV2Factory factory = IUniswapV2Factory(uniswapV2Factory);
+        IUniswapV2Router01 router = IUniswapV2Router01(uniswapV2Router);
 
         address pair = factory.createPair(tokenAddress, router.WETH());
         return pair;
@@ -120,8 +124,9 @@ contract TokenFactory is BondingCurve, ReentrancyGuard {
         uint256 ethAmount
     ) internal returns (uint256) {
         Token token = Token(tokenAddress);
-        IUniswapV2Router01 router = IUniswapV2Router01(UNISWAP_V2_ROUTER);
-        token.approve(UNISWAP_V2_ROUTER, tokenAmount);
+        IUniswapV2Router01 router = IUniswapV2Router01(uniswapV2Router);
+        token.approve(uniswapV2Router, tokenAmount);
+        //slither-disable-next-line arbitrary-send-eth
         (, , uint256 liquidity) = router.addLiquidityETH{value: ethAmount}(
             tokenAddress,
             tokenAmount,

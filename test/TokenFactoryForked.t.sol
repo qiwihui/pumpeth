@@ -9,6 +9,7 @@ import {IUniswapV2Router01} from "@uniswap-v2-periphery-1.1.0-beta.0/contracts/i
 import {FixedPointMathLib} from "@solady-0.0.233/src/utils/FixedPointMathLib.sol";
 import {TokenFactory} from "../src/TokenFactory.sol";
 import {Token} from "../src/Token.sol";
+import {BondingCurve} from "../src/BondingCurve.sol";
 
 contract TokenFactoryForkedTest is Test {
     TokenFactory public factory;
@@ -16,14 +17,25 @@ contract TokenFactoryForkedTest is Test {
     IUniswapV2Factory uniswapFactory;
     IUniswapV2Router01 router;
     Token public tokenImplemetation;
+    BondingCurve public bondingCurve;
+
+    address public constant UNISWAP_V2_FACTORY =
+        0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f;
+    address public constant UNISWAP_V2_ROUTER =
+        0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
 
     function setUp() public {
         mainnetFork = vm.createSelectFork("mainnet");
-
+        bondingCurve = new BondingCurve(16319324419, 1000000000);
         tokenImplemetation = new Token();
-        factory = new TokenFactory(address(tokenImplemetation));
-        uniswapFactory = IUniswapV2Factory(factory.UNISWAP_V2_FACTORY());
-        router = IUniswapV2Router01(factory.UNISWAP_V2_ROUTER());
+        factory = new TokenFactory(
+            address(tokenImplemetation),
+            UNISWAP_V2_ROUTER,
+            UNISWAP_V2_FACTORY,
+            address(bondingCurve)
+        );
+        uniswapFactory = IUniswapV2Factory(factory.uniswapV2Factory());
+        router = IUniswapV2Router01(factory.uniswapV2Router());
     }
 
     function test_ForkedBuy() public {
@@ -72,8 +84,6 @@ contract TokenFactoryForkedTest is Test {
         address tokenAddress = factory.createToken("MyFirstToken", "MFT");
 
         vm.startPrank(alice);
-        vm.expectRevert();
-        factory.sell(tokenAddress, 1);
 
         factory.buy{value: 1 ether}(tokenAddress);
         factory.sell(tokenAddress, 59472943757613680000000000);
@@ -85,6 +95,19 @@ contract TokenFactoryForkedTest is Test {
         factory.buy{value: 1 ether}(tokenAddress);
         vm.expectRevert();
         factory.sell(tokenAddress, 40_000_000 ether);
+        vm.stopPrank();
+    }
+
+    function test_ForkedSellEmpty() public {
+        address alice = makeAddr("alice");
+        vm.deal(alice, 30 ether);
+        address tokenAddress = factory.createToken("MyFirstToken", "MFT");
+
+        vm.startPrank(alice);
+
+        vm.expectRevert();
+        factory.sell(tokenAddress, 1);
+
         vm.stopPrank();
     }
 }

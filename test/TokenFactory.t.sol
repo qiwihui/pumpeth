@@ -7,18 +7,31 @@ import {IUniswapV2Pair} from "@uniswap-v2-core-1.0.1/contracts/interfaces/IUnisw
 import {IUniswapV2Router01} from "@uniswap-v2-periphery-1.1.0-beta.0/contracts/interfaces/IUniswapV2Router01.sol";
 import {TokenFactory} from "../src/TokenFactory.sol";
 import {Token} from "../src/Token.sol";
+import {BondingCurve} from "../src/BondingCurve.sol";
 
 contract TokenFactoryTest is Test {
     TokenFactory public factory;
     IUniswapV2Factory uniswapFactory;
     IUniswapV2Router01 router;
     Token public tokenImplemetation;
+    BondingCurve public bondingCurve;
+
+    address public constant UNISWAP_V2_FACTORY =
+        0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f;
+    address public constant UNISWAP_V2_ROUTER =
+        0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
 
     function setUp() public {
         tokenImplemetation = new Token();
-        factory = new TokenFactory(address(tokenImplemetation)); // 1/2
-        uniswapFactory = IUniswapV2Factory(factory.UNISWAP_V2_FACTORY());
-        router = IUniswapV2Router01(factory.UNISWAP_V2_ROUTER());
+        bondingCurve = new BondingCurve(16319324419, 1000000000);
+        factory = new TokenFactory(
+            address(tokenImplemetation),
+            UNISWAP_V2_ROUTER,
+            UNISWAP_V2_FACTORY,
+            address(bondingCurve)
+        );
+        uniswapFactory = IUniswapV2Factory(factory.uniswapV2Factory());
+        router = IUniswapV2Router01(factory.uniswapV2Router());
     }
 
     function test_CreateToken() public {
