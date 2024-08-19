@@ -92,7 +92,7 @@ contract TokenFactoryForkedTest is Test {
         factory.sell(tokenAddress, 1);
 
         // all buyed, revert when selling
-        factory.buy{value: 1 ether}(tokenAddress);
+        factory.buy{value: 1 ether + 1}(tokenAddress);
         vm.expectRevert();
         factory.sell(tokenAddress, 40_000_000 ether);
         vm.stopPrank();
