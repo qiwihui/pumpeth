@@ -137,6 +137,7 @@ contract TokenFactory is ReentrancyGuard, Ownable {
         // calculate fee
         uint256 _fee = calculateFee(receivedETH, feePercent);
         receivedETH -= _fee;
+        fee += _fee;
         token.burn(msg.sender, amount);
         collateral[tokenAddress] -= receivedETH;
         // send ether
