@@ -61,7 +61,10 @@ contract TokenFactoryTest is Test {
         assert(token.balanceOf(alice) > 0);
         factory.buy{value: 18 ether}(tokenAddress);
         assert(
-            factory.fee() == (19 ether * feePercent) / factory.FEE_DENOMINATOR()
+            (19 ether * feePercent) /
+                (factory.FEE_DENOMINATOR() + feePercent) -
+                factory.fee() <
+                1000
         );
         vm.stopPrank();
     }
@@ -76,7 +79,7 @@ contract TokenFactoryTest is Test {
         factory.buy{value: 1 ether}(tokenAddress);
         factory.sell(tokenAddress, 1_000_000);
         factory.sell(tokenAddress, 1_000_000);
-        assert(token.balanceOf(alice) == 58895387276865134998000000);
+        assert(token.balanceOf(alice) == 58901107293165283998000000);
         vm.stopPrank();
     }
 
@@ -89,10 +92,18 @@ contract TokenFactoryTest is Test {
         vm.startPrank(alice);
         factory.buy{value: 1 ether}(tokenAddress);
 
-        vm.expectRevert(abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", alice));
+        vm.expectRevert(
+            abi.encodeWithSignature(
+                "OwnableUnauthorizedAccount(address)",
+                alice
+            )
+        );
         factory.claimFee();
         assert(
-            factory.fee() == (1 ether * feePercent) / factory.FEE_DENOMINATOR()
+            (1 ether * feePercent) /
+                (factory.FEE_DENOMINATOR() + feePercent) -
+                factory.fee() <
+                1000
         );
         vm.stopPrank();
         factory.claimFee();

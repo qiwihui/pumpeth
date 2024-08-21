@@ -52,6 +52,10 @@ contract TokenFactory is ReentrancyGuard, Ownable {
 
     // Admin functions
 
+    function setBondingCurve(address _bondingCurve) external onlyOwner {
+        bondingCurve = BondingCurve(_bondingCurve);
+    }
+
     function setFeePercent(uint256 _feePercent) external onlyOwner {
         feePercent = _feePercent;
     }
@@ -80,24 +84,27 @@ contract TokenFactory is ReentrancyGuard, Ownable {
         require(tokens[tokenAddress] == TokenState.FUNDING, "Token not found");
         require(msg.value > 0, "ETH not enough");
         // calculate fee
-        uint256 _fee = calculateFee(msg.value, feePercent);
-        uint256 valueToBuy = msg.value - _fee;
+        uint256 valueToBuy = msg.value;
         uint256 valueToReturn;
+        uint256 tokenCollateral = collateral[tokenAddress];
+
+        uint256 remainingEthNeeded = FUNDING_GOAL - tokenCollateral;
+        uint256 contributionWithoutFee = valueToBuy * FEE_DENOMINATOR / (FEE_DENOMINATOR + feePercent);
+        if (contributionWithoutFee > remainingEthNeeded) {
+            contributionWithoutFee = remainingEthNeeded;
+        }
+        uint256 _fee = calculateFee(contributionWithoutFee, feePercent);
+        uint256 totalCharged = contributionWithoutFee + _fee;
+        valueToReturn = valueToBuy > totalCharged ? valueToBuy - totalCharged : 0;
         fee += _fee;
         Token token = Token(tokenAddress);
-        uint256 tokenCollateral = collateral[tokenAddress];
-        if (tokenCollateral + valueToBuy > FUNDING_GOAL) {
-            valueToReturn = tokenCollateral + valueToBuy - FUNDING_GOAL;
-            valueToBuy = FUNDING_GOAL - tokenCollateral;
-        }
         uint256 amount = bondingCurve.getAmountOut(
             token.totalSupply(),
-            valueToBuy
+            contributionWithoutFee
         );
         uint256 availableSupply = FUNDING_SUPPLY - token.totalSupply();
         require(amount <= availableSupply, "Token supply not enough");
-
-        tokenCollateral += valueToBuy;
+        tokenCollateral += contributionWithoutFee;
         token.mint(msg.sender, amount);
         // when reached FUNDING_GOAL
         if (tokenCollateral >= FUNDING_GOAL) {

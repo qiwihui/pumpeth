@@ -89,9 +89,9 @@ contract TokenFactoryForkedTest is Test {
         vm.startPrank(alice);
 
         factory.buy{value: 1 ether}(tokenAddress);
-        factory.sell(tokenAddress, 58895387276865135000000000);
+        factory.sell(tokenAddress, 58901107293165284000000000);
 
-        factory.buy{value: 20 ether}(tokenAddress);
+        factory.buy{value: 25 ether}(tokenAddress);
         factory.sell(tokenAddress, 100);
 
         // all buyed, revert when selling

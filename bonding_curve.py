@@ -62,7 +62,7 @@ def calc_a_from_b(b, delta_x, delta_y):
 
 
 if __name__ == "__main__":
-    b = 1_000_000_000 # 10^
+    b = 1_000_000_000 # 10^-9
     delta_x = 800_000_000 * WAD  # 800 M
     delta_y = 20 * WAD
     a = int(calc_a_from_b(b, delta_x, delta_y)) + 1
