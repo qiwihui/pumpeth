@@ -11,12 +11,16 @@ contract CounterScript is Script {
 
     function run() public {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-
-        address UNISWAP_V2_FACTORY = 0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f;
-        address UNISWAP_V2_ROUTER = 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
+        // sepolia
+        address UNISWAP_V2_FACTORY = 0x7E0987E5b3a30e3f2828572Bb659A548460a3003;
+        address UNISWAP_V2_ROUTER = 0xC532a74256D3Db42D0Bf7a0400fEFDbad7694008;
 
         vm.startBroadcast(deployerPrivateKey);
-        BondingCurve bondingCurve = new BondingCurve(16319324419, 1000000000);
+        // BondingCurve bondingCurve = new BondingCurve(16319324419, 1000000000); // 20 eth
+
+        new BondingCurve(505940703, 2000000000); // 1 eth
+        new BondingCurve(646519142, 1500000000); // 1 eth
+        BondingCurve bondingCurve = new BondingCurve(815966221, 1000000000); // 1 eth
         // deploy token impl
         Token tokenImplemetation = new Token();
         new TokenFactory(
