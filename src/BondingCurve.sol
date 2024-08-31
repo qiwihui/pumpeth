@@ -7,8 +7,8 @@ contract BondingCurve {
     using FixedPointMathLib for uint256;
     using FixedPointMathLib for int256;
 
-    uint256 public immutable A; // = 16319324419;
-    uint256 public immutable B; // = 1000000000;
+    uint256 public immutable A;
+    uint256 public immutable B;
 
     constructor(uint256 _a, uint256 _b) {
         A = _a;
